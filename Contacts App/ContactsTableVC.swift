@@ -9,7 +9,7 @@
 import UIKit
 import CoreData
 
-class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResultsControllerDelegate {
+class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResultsControllerDelegate, UIGestureRecognizerDelegate {
     
     @IBOutlet weak var searchBar: UISearchBar!
     
@@ -17,11 +17,18 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
     var filteredContacts = [Person]()
     var fetchedResultsController: NSFetchedResultsController<Person>!
     let transitionManager = TransitionManager()
+    var searchActive: Bool = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
         
         searchBar.delegate = self
+        searchBar.resignFirstResponder()
+        
+        //Had problem where couldn't segue to next screen, had to exclude UITableViewCell from gesture recognizer
+        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(ContactsTableVC.dismissKeyboard))
+        tap.delegate = self
+        self.view.addGestureRecognizer(tap)
         
         self.tableView.separatorStyle = UITableViewCellSeparatorStyle.none
         self.tableView.backgroundColor = UIColor(red: 240/255.0, green: 240/255.0, blue: 240/255.0, alpha: 1.0)
@@ -30,6 +37,10 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
         attemptFetch()
         addNavBarImage()
         self.tableView.reloadData()
+    }
+    
+    override func dismissKeyboard() {
+        searchBar.endEditing(true)
     }
     
     // Some setup for navigation bar
@@ -60,6 +71,19 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
     // MARK: - Searchbar
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         filterContentForSearchText(searchText: searchBar.text!)
+    }
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+    }
+    
+    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
+        searchBar.showsCancelButton = true
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.showsCancelButton = false
+        searchBar.resignFirstResponder()
     }
     
     func filterContentForSearchText(searchText:String, scope:String="All"){
@@ -184,7 +208,7 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
 
-        if searchBar.becomeFirstResponder() && searchBar.text != ""{
+        if searchBar.text != ""{ // searchBar.becomeFirstResponder() && //searchBar.resignFirstResponder() &&
             return filteredContacts.count
         }
         return persons.count
@@ -194,6 +218,7 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "ContactCell", for: indexPath) as? PersonsCell
         
+        
         configureCell(cell:cell!,indexPath:indexPath as NSIndexPath)
         
         return cell!
@@ -201,7 +226,7 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
     
     func configureCell(cell:PersonsCell, indexPath:NSIndexPath){
         
-        if searchBar.becomeFirstResponder() && searchBar.text != ""{
+        if searchBar.text != ""{ //searchBar.becomeFirstResponder() &&
             let persons = filteredContacts[indexPath.row]
             cell.updateUI(person: persons)
         }
@@ -209,8 +234,15 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
             let person = persons[indexPath.row]
             cell.updateUI(person: person)
         }
-        
-        
+    }
+    
+    // Ignores cells and allows for segue to work again
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if gestureRecognizer is UITapGestureRecognizer {
+            let location = touch.location(in: tableView)
+            return (tableView.indexPathForRow(at: location) == nil)
+        }
+        return true
     }
  
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -262,11 +294,11 @@ class ContactsTableVC: UITableViewController, UISearchBarDelegate, NSFetchedResu
                 if let indexPath = viewController.indexPathForContact {
                     viewController.transitioningDelegate = self.transitionManager
                     update(indexPath: indexPath, firstName: _firstName, lastName: _lastName, dob: _dob, phoneNumber: _phoneNumber, zipCode: _zipCode)
-                    print("Any updates?")
+                    //print("Any updates?")
                 } else {
                     viewController.transitioningDelegate = self.transitionManager
                     save(firstName: _firstName, lastName: _lastName, dob: _dob, phoneNumber: _phoneNumber, zipCode: _zipCode)
-                    print("added to tableview")
+                    //print("added to tableview")
                 }
             }
             tableView.reloadData()
